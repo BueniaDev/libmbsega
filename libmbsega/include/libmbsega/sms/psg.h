@@ -21,7 +21,7 @@
 
 #include <fstream>
 #include "utils.h"
-#include "sn76489.h"
+#include "mmu.h"
 using namespace sega;
 using namespace std;
 
@@ -30,7 +30,7 @@ namespace sega
     class LIBMBSEGA_API SMSPSG
     {
 	public:
-	    SMSPSG();
+	    SMSPSG(SMSMMU &mem);
 	    ~SMSPSG();
 
 	    void init();
@@ -41,9 +41,10 @@ namespace sega
 	    void setaudiocallback(audiofunc cb);
 
 	private:
-	    SN76489 psg;
+	    SMSMMU &memory;
+
 	    audiofunc outputaudio;
-	    const uint32_t psg_clock = 3579545;
+	    // const uint32_t psg_clock = 3579545;
 
 	    float out_step = 0.0f;
 	    float in_step = 0.0f;

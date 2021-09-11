@@ -20,6 +20,7 @@
 #define LIBMBSEGA_SMS_VDP
 
 #include "utils.h"
+#include "mmu.h"
 using namespace sega;
 using namespace std;
 
@@ -28,7 +29,7 @@ namespace sega
     class LIBMBSEGA_API SMSVDP
     {
 	public:
-	    SMSVDP();
+	    SMSVDP(SMSMMU &mem);
 	    ~SMSVDP();
 
 	    void init();
@@ -37,12 +38,18 @@ namespace sega
 	    void write_control(uint8_t data);
 	    void write_data(uint8_t data);
 	    uint8_t read_status();
+	    uint8_t read_data();
 	    uint8_t read_vcounter();
+	    uint8_t read_hcounter();
 	    void clock_vdp(int cycles);
 	    vector<segaRGB> getframebuffer();
 	    bool is_irq_gen();
 
 	private:
+	    SMSMMU &memory;
+
+	    bool is_sms1_vdp = true;
+
 	    bool is_second_byte = false;
 	    uint16_t command_word = 0;
 	    int code_register = 0;
@@ -87,10 +94,16 @@ namespace sega
 
 	    int display_res = 0;
 
+	    uint8_t read_buffer = 0;
+
 	    bool irq_gen = false;
 
 	    bool vcounter_first = false;
 	    bool is_vblank = false;
+
+	    int backdrop_color = 0;
+
+	    uint8_t status_byte = 0x00;
 
 	    bool is_frame_irq = false;
 	    bool is_line_irq = false;

@@ -32,9 +32,22 @@ namespace sega
 {
     using audiofunc = function<void(int16_t, int16_t)>;
 
-    inline bool testbit(uint32_t reg, int bit)
+    template<typename T>
+    inline bool testbit(T reg, int bit)
     {
 	return ((reg >> bit) & 1) ? true : false;
+    }
+
+    template<typename T>
+    inline T setbit(T reg, int bit)
+    {
+	return (reg | (1 << bit));
+    }
+
+    template<typename T>
+    inline T resetbit(T reg, int bit)
+    {
+	return (reg & ~(1 << bit));
     }
 
     struct segaRGB
@@ -43,6 +56,45 @@ namespace sega
 	uint8_t green;
 	uint8_t blue;
     };
+
+    inline void generate_crc_table(array<uint32_t, 256> &table)
+    {
+	uint32_t polynomial = 0xEDB88320;
+
+	for (uint32_t i = 0; i < 256; i++)
+	{
+	    uint32_t value = i;
+
+	    for (size_t j = 0; j < 8; j++)
+	    {
+		if (testbit(value, 0))
+		{
+		    value = (polynomial ^ (value >> 1));
+		}
+		else
+		{
+		    value >>= 1;
+		}
+	    }
+
+	    table[i] = value;
+	}
+    }
+
+    inline uint32_t calculate_crc32(uint32_t initial, vector<uint8_t> data)
+    {
+	array<uint32_t, 256> crc_table;
+	generate_crc_table(crc_table);
+
+	uint32_t crc = (initial ^ 0xFFFFFFFF);
+
+	for (size_t i = 0; i < data.size(); i++)
+	{
+	    crc = (crc_table[((crc ^ data[i]) & 0xFF)] ^ (crc >> 8));
+	}
+
+	return (crc ^ 0xFFFFFFFF);
+    }
 
     class LIBMBSEGA_API mbsegaFrontend
     {
@@ -68,10 +120,44 @@ namespace sega
     {
 	namespace machinecycles
 	{
-	    static constexpr uint32_t SMS_NTSC = ((53693175 / 5) / 60);
-	    static constexpr uint32_t SMS_PAL = ((53203424 / 5) / 50);
+	    static constexpr uint32_t SMS_NTSC = (53693175 / 5);
+	    static constexpr uint32_t SMS_PAL = (53203424 / 5);
+	};
+
+	namespace fps
+	{
+	    static constexpr uint32_t NTSC = 60;
+	    static constexpr uint32_t PAL = 50;
 	};
     };
+
+    inline uint32_t get_sms_clock_rate(bool is_pal)
+    {
+	uint32_t clock_rate = 0;
+
+	if (is_pal)
+	{
+	    clock_rate = constants::machinecycles::SMS_PAL;
+	}
+	else
+	{
+	    clock_rate = constants::machinecycles::SMS_NTSC;
+	}
+
+	return (clock_rate / 3);
+    }
+
+    inline uint32_t get_machine_clocks(bool is_pal)
+    {
+	if (is_pal)
+	{
+	    return (constants::machinecycles::SMS_PAL / constants::fps::PAL);
+	}
+	else
+	{
+	    return (constants::machinecycles::SMS_NTSC / constants::fps::NTSC);
+	}
+    }
 };
 
 #endif // LIBMBSEGA_UTILS

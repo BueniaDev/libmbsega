@@ -172,10 +172,38 @@ class SDL2Frontend : public mbsegaFrontend
 	{
 	    while (SDL_PollEvent(&event))
 	    {
-		if (event.type == SDL_QUIT)
+		switch (event.type)
 		{
-		    quit = true;
+		    case SDL_QUIT: quit = true; break;
+		    case SDL_KEYDOWN:
+		    case SDL_KEYUP:
+		    {
+			bool is_keydown = (event.type == SDL_KEYDOWN);
+
+			switch (event.key.keysym.sym)
+			{
+			    case SDLK_a: keychanged(SMSButton::One, is_keydown); break;
+			    case SDLK_b: keychanged(SMSButton::Two, is_keydown); break;
+			    case SDLK_UP: keychanged(SMSButton::Up, is_keydown); break;
+			    case SDLK_DOWN: keychanged(SMSButton::Down, is_keydown); break;
+			    case SDLK_LEFT: keychanged(SMSButton::Left, is_keydown); break;
+			    case SDLK_RIGHT: keychanged(SMSButton::Right, is_keydown); break;
+			}
+		    }
+		    break;
 		}
+	    }
+	}
+
+	void keychanged(SMSButton button, bool is_pressed)
+	{
+	    if (is_pressed)
+	    {
+		core.keypressed(button);
+	    }
+	    else
+	    {
+		core.keyreleased(button);
 	    }
 	}
 

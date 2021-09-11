@@ -17,6 +17,7 @@ include_directories(${LIBMBSEGA_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} libmbsega)
 
 find_package(SDL2 REQUIRED)
+include_directories(${SDL2_INCLUDE_DIRS})
 
 if (TARGET SDL2::SDL2)
     target_link_libraries(${PROJECT_NAME} SDL2::SDL2)

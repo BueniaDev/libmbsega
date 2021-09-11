@@ -28,6 +28,7 @@
 #include "sms/cpu.h"
 #include "sms/vdp.h"
 #include "sms/psg.h"
+#include "sms/ioport.h"
 using namespace sega;
 using namespace std;
 
@@ -43,6 +44,7 @@ namespace sega
 	    unique_ptr<SMSCPU> corecpu;
 	    unique_ptr<SMSVDP> corevdp;
 	    unique_ptr<SMSPSG> corepsg;
+	    unique_ptr<SMSPort> coreport;
 
 	    mbsegaFrontend *front = NULL;
 
@@ -52,6 +54,9 @@ namespace sega
 	    vector<segaRGB> getframebuffer();
 
 	    void setfrontend(mbsegaFrontend *cb);
+
+	    void keypressed(SMSButton button, bool is_player_1 = true);
+	    void keyreleased(SMSButton button, bool is_player_1 = true);
 
 	    void init();
 	    void shutdown();

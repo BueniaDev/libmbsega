@@ -26,9 +26,10 @@ namespace sega
     MasterSystemCore::MasterSystemCore()
     {
 	coremmu = make_unique<SMSMMU>();
-	corevdp = make_unique<SMSVDP>();
-	corepsg = make_unique<SMSPSG>();
-	corecpu = make_unique<SMSCPU>(*coremmu, *corevdp, *corepsg);
+	coreport = make_unique<SMSPort>();
+	corevdp = make_unique<SMSVDP>(*coremmu);
+	corepsg = make_unique<SMSPSG>(*coremmu);
+	corecpu = make_unique<SMSCPU>(*coremmu, *corevdp, *corepsg, *coreport);
     }
 
     MasterSystemCore::~MasterSystemCore()
@@ -41,6 +42,7 @@ namespace sega
 	coremmu->init();
 	corevdp->init();
 	corepsg->init();
+	coreport->init();
 	corecpu->init();
 	cout << "mbsega-SMS::Initialized" << endl;
     }
@@ -53,6 +55,7 @@ namespace sega
 	}
 
 	corecpu->shutdown();
+	coreport->shutdown();
 	corepsg->shutdown();
 	corevdp->shutdown();
 	coremmu->shutdown();
@@ -65,6 +68,16 @@ namespace sega
 	front = cb;
 	corepsg->setaudiocallback(bind(&mbsegaFrontend::audiocallback, front, _1, _2));
 	cout << "Setting frontend..." << endl;
+    }
+
+    void MasterSystemCore::keypressed(SMSButton button, bool is_player_1)
+    {
+	coreport->keypressed(button, is_player_1);
+    }
+
+    void MasterSystemCore::keyreleased(SMSButton button, bool is_player_1)
+    {
+	coreport->keyreleased(button, is_player_1);
     }
 
     bool MasterSystemCore::loadROM(string filename)
@@ -109,7 +122,7 @@ namespace sega
 
     void MasterSystemCore::runcore()
     {
-	uint32_t total_machine_clocks = constants::machinecycles::SMS_NTSC;
+	uint32_t total_machine_clocks = get_machine_clocks(coremmu->isRegionPAL());
 	uint32_t clock_cycles = 0;
 	
 	while (clock_cycles < total_machine_clocks)

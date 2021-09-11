@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.7)
 project(libmbsega)
 
 # Require C++17 (and position independent code)
@@ -23,6 +23,8 @@ set(LIBMBSEGA_API_HEADERS
 	libmbsega/include/libmbsega/sms/mmu.h
 	libmbsega/include/libmbsega/sms/vdp.h
 	libmbsega/include/libmbsega/sms/psg.h
+	libmbsega/include/libmbsega/sms/devices.h
+	libmbsega/include/libmbsega/sms/ioport.h
 	libmbsega/include/libmbsega/sms/cpu.h
 	libmbsega/include/libmbsega/libmbsega.h)
 
@@ -30,6 +32,8 @@ set(LIBMBSEGA
 	libmbsega/src/core/sms/mmu.cpp
 	libmbsega/src/core/sms/vdp.cpp
 	libmbsega/src/core/sms/psg.cpp
+	libmbsega/src/core/sms/devices.cpp
+	libmbsega/src/core/sms/ioport.cpp
 	libmbsega/src/core/sms/cpu.cpp
 	libmbsega/src/core/libmbsega.cpp)
 
@@ -43,7 +47,7 @@ add_subdirectory(modules)
 add_library(mbsega ${LIBMBSEGA} ${LIBMBSEGA_API_HEADERS})
 target_include_directories(mbsega PUBLIC ${LIBMBSEGA_INCLUDE_DIRS})
 target_compile_definitions(mbsega PRIVATE LIBMBSEGA_STATIC=1 _CRT_SECURE_NO_WARNINGS=1)
-target_link_libraries(mbsega PRIVATE libbeez80 sn76489)
+target_link_libraries(mbsega PRIVATE libbeez80)
 add_library(libmbsega ALIAS mbsega)
 
 if (WIN32)

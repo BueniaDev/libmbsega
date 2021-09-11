@@ -23,6 +23,7 @@
 #include "vdp.h"
 #include "psg.h"
 #include "mmu.h"
+#include "ioport.h"
 #include "zilogz80.h"
 using namespace sega;
 using namespace std;
@@ -32,7 +33,7 @@ namespace sega
     class LIBMBSEGA_API SMSInterface : public BeeZ80Interface
     {
 	public:
-	    SMSInterface(SMSMMU &mem, SMSVDP &vdp, SMSPSG &psg);
+	    SMSInterface(SMSMMU &mem, SMSVDP &vdp, SMSPSG &psg, SMSPort &io);
 	    ~SMSInterface();
 
 	    uint8_t readByte(uint16_t addr);
@@ -40,16 +41,19 @@ namespace sega
 	    uint8_t portIn(uint16_t port);
 	    void portOut(uint16_t port, uint8_t val);
 
+	    bool dump = false;
+
 	private:
 	    SMSMMU &memory;
 	    SMSVDP &graphics;
 	    SMSPSG &audiopsg;
+	    SMSPort &ioport;
     };
 
     class LIBMBSEGA_API SMSCPU
     {
 	public:
-	    SMSCPU(SMSMMU &mem, SMSVDP &vdp, SMSPSG &psg);
+	    SMSCPU(SMSMMU &mem, SMSVDP &vdp, SMSPSG &psg, SMSPort &io);
 	    ~SMSCPU();
 
 	    void init();
@@ -63,7 +67,10 @@ namespace sega
 	    SMSMMU &memory;
 	    SMSVDP &graphics;
 	    SMSPSG &audiopsg;
+	    SMSPort &ioport;
 	    SMSInterface *inter = NULL;
+
+	    bool dump = false;
     };
 };
 

@@ -22,7 +22,7 @@ using namespace std;
 
 namespace sega
 {
-    SMSInterface::SMSInterface(SMSMMU &mem, SMSVDP &vdp, SMSPSG &psg) : memory(mem), graphics(vdp), audiopsg(psg)
+    SMSInterface::SMSInterface(SMSMMU &mem, SMSVDP &vdp, SMSPSG &psg, SMSPort &io) : memory(mem), graphics(vdp), audiopsg(psg), ioport(io)
     {
 
     }
@@ -49,19 +49,18 @@ namespace sega
 
 	if ((port & 0xC1) == 0x40)
 	{
+	    // cout << "Reading VDP vcounter..." << endl;
 	    temp = graphics.read_vcounter();
 	}
 	else if ((port & 0xC1) == 0x41)
 	{
-	    cout << "Reading VDP hcounter" << endl;
-	    exit(0);
-	    temp = 0;
+	    // cout << "Reading VDP hcounter..." << endl;
+	    temp = graphics.read_hcounter();
 	}
 	else if ((port & 0xC1) == 0x80)
 	{
 	    cout << "Reading VDP data port..." << endl;
-	    exit(0);
-	    temp = 0;
+	    temp = graphics.read_data();
 	}
 	else if ((port & 0xC1) == 0x81)
 	{
@@ -70,15 +69,12 @@ namespace sega
 	}
 	else if ((port & 0xC1) == 0xC0)
 	{
-	    // TODO: Implement I/O port reads
-	    cout << "Reading I/O port A..." << endl;
-	    temp = 0xFF;
+	    temp = ioport.read_porta();
 	}
 	else if ((port & 0xC1) == 0xC1)
 	{
-	    // TODO: Implement I/O port reads
-	    cout << "Reading I/O port B..." << endl;
-	    temp = 0xFF;
+	    temp = ioport.read_portb();
+	    // temp = 0xFF;
 	}
 	else
 	{
@@ -95,7 +91,6 @@ namespace sega
 	// TODO: Implement remaining I/O register writes
 	if ((port & 0xC0) == 0x40)
 	{
-	    // cout << "Writing byte of " << hex << (int)val << " to SN76489 PSG" << endl;
 	    audiopsg.writereg(val);
 	}
 	else if ((port & 0xC1) == 0x80)
@@ -113,7 +108,7 @@ namespace sega
 	}
     }
 
-    SMSCPU::SMSCPU(SMSMMU &mem, SMSVDP &vdp, SMSPSG &psg) : memory(mem), graphics(vdp), audiopsg(psg)
+    SMSCPU::SMSCPU(SMSMMU &mem, SMSVDP &vdp, SMSPSG &psg, SMSPort &io) : memory(mem), graphics(vdp), audiopsg(psg), ioport(io)
     {
 	
     }
@@ -128,7 +123,7 @@ namespace sega
 
     void SMSCPU::init()
     {
-	inter = new SMSInterface(memory, graphics, audiopsg);
+	inter = new SMSInterface(memory, graphics, audiopsg, ioport);
 	z80core.setinterface(inter);
 	z80core.init();
 	cout << "SMS-CPU::Initialized" << endl;
@@ -142,6 +137,23 @@ namespace sega
 
     int SMSCPU::runinstruction()
     {
+	/*
+	if (z80core.pc == 0x3BD1)
+	{
+	    dump = true;
+	}
+
+	if (dump == true)
+	{
+	    z80core.debugoutput();
+
+	    if (z80core.pc == 0)
+	    {
+		exit(0);
+	    }
+	}
+	*/
+
 	return z80core.runinstruction();
     }
 

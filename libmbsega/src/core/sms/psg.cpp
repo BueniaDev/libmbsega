@@ -22,7 +22,7 @@ using namespace std;
 
 namespace sega
 {
-    SMSPSG::SMSPSG()
+    SMSPSG::SMSPSG(SMSMMU &mem) : memory(mem)
     {
 
     }
@@ -34,7 +34,8 @@ namespace sega
 
     void SMSPSG::init()
     {
-	sample_ratio = ((psg.get_sample_rate(psg_clock)) / 48000.0f);
+	uint32_t psg_clock = get_sms_clock_rate(memory.isRegionPAL());
+	// sample_ratio = ((psg_clock / 16) / 48000.0f);
 	cout << "SMSPSG::Initialized" << endl;
     }
 
@@ -50,7 +51,7 @@ namespace sega
 
     void SMSPSG::writereg(uint8_t data)
     {
-	psg.writeIO(data);
+	return;
     }
 
     void SMSPSG::clock_psg(int cycles)
@@ -59,7 +60,7 @@ namespace sega
 	{
 	    psg_cycles += 1;
 
-	    if (psg_cycles == psg.get_divisor())
+	    if (psg_cycles == 16)
 	    {
 		mixaudio();
 		psg_cycles = 0;
@@ -69,19 +70,20 @@ namespace sega
 
     void SMSPSG::mixaudio()
     {
-	psg.chipclock();
+	/*
 	while (sample_phase < 1.0)
 	{
-	    auto samples = psg.get_sample();
-
+	    /*
 	    if (outputaudio)
 	    {
 		outputaudio(samples[0], samples[1]);
 	    }
+	    */
 
 	    sample_phase += sample_ratio;
 	}
 
 	sample_phase -= 1.0f;
+	*/
     }
 };

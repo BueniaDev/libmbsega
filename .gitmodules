@@ -1,6 +1,3 @@
 [submodule "modules/z80/BeeZ80"]
 	path = modules/z80/BeeZ80
 	url = https://github.com/BueniaDev/BeeZ80.git
-[submodule "modules/psg/BeePSG"]
-	path = modules/psg/BeePSG
-	url = https://github.com/BueniaDev/BeePSG.git

@@ -22,7 +22,7 @@ using namespace std;
 
 namespace sega
 {
-    SMSVDP::SMSVDP()
+    SMSVDP::SMSVDP(SMSMMU &mem) : memory(mem)
     {
 
     }
@@ -34,24 +34,32 @@ namespace sega
 
     void SMSVDP::init()
     {
+	if (memory.isMapperCodeMasters())
+	{
+	    cout << "CodeMasters game detected, switching to SMS2 VDP" << endl;
+	    is_sms1_vdp = false;
+	}
+
 	vram.fill(0);
 	cram.fill(0);
 	framebuffer.fill({0, 0, 0});
 
 	// Values of VDP registers at power-up:
 	// 0x00 = 0x36
-	// 0x01 = 0x80
+	// 0x01 = 0xA0
 	// 0x02 = 0xFF
 	// 0x03 = 0xFF
 	// 0x04 = 0xFF
 	// 0x05 = 0xFF
 	// 0x06 = 0xFB
+	// 0x07 = 0x00
+	// 0x08 = 0x00
+	// 0x09 = 0x00
 	// 0x0A = 0xFF
-	// All other registers = 0x00
 
 	array<uint8_t, 11> vdp_init_values = 
 	{
-	    0x36, 0x80, 0xFF, 0xFF,
+	    0x36, 0xA0, 0xFF, 0xFF,
 	    0xFF, 0xFF, 0xFB, 0x00,
 	    0x00, 0x00, 0xFF
 	};
@@ -108,10 +116,13 @@ namespace sega
 		is_frame_irq = testbit(data, 5);
 		is_vdp_enabled = testbit(data, 6);
 
+		/*
 		if (is_vblank && is_frame_irq)
 		{
+		    // cout << "Bonus IRQ" << endl;
 		    irq_gen = true;
 		}
+		*/
 	    }
 	    break;
 	    case 0x02:
@@ -127,6 +138,11 @@ namespace sega
 	    case 0x04:
 	    {
 		pattern_addr = (data & 0x7);
+	    }
+	    break;
+	    case 0x07:
+	    {
+		backdrop_color = (data & 0xF);
 	    }
 	    break;
 	    case 0x08:
@@ -159,7 +175,8 @@ namespace sega
 	    {
 		case 0:
 		{
-		    cout << "Unimplemented: Code register mode 0" << endl;
+		    read_buffer = vram[addr_register];
+		    increment_addr();
 		}
 		break;
 		case 2:
@@ -194,12 +211,25 @@ namespace sega
 	}
 
 	increment_addr();
+	is_second_byte = false;
+
+	read_buffer = data;
+    }
+
+    uint8_t SMSVDP::read_data()
+    {
+	is_second_byte = false;
+
+	uint8_t result = read_buffer;
+	read_buffer = vram[addr_register];
+	increment_addr();
+	
+	return result;
     }
 
     uint8_t SMSVDP::read_status()
     {
 	uint8_t status = (is_vblank << 7);
-	
 	is_vblank = false;
 	irq_gen = false;
 	is_second_byte = false;
@@ -211,6 +241,12 @@ namespace sega
 	return vcounter;
     }
 
+    uint8_t SMSVDP::read_hcounter()
+    {
+	uint16_t mod = (hcounter & 0x1FF);
+	return ((mod >> 1) & 0xFF);
+    }
+
     bool SMSVDP::is_irq_gen()
     {
 	return irq_gen;
@@ -218,12 +254,11 @@ namespace sega
 
     uint8_t SMSVDP::get_vjump()
     {
-	// TODO: PAL timings
 	uint8_t temp = 0;
 	switch (display_res)
 	{
-	    case 0: temp = 0xDA; break;
-	    case 1: temp = 0xEA; break;
+	    case 0: temp = memory.isRegionPAL() ? 0xF2 : 0xDA; break;
+	    case 1: temp = memory.isRegionPAL() ? 0xFF : 0xEA; break;
 	    default: temp = 0xFF; break;
 	}
 
@@ -232,13 +267,13 @@ namespace sega
 
     uint8_t SMSVDP::get_vjump_to()
     {
-	// TODO: PAL timings
 	uint8_t temp = 0;
 	switch (display_res)
 	{
-	    case 0: temp = 0xD5; break;
-	    case 1: temp = 0xE5; break;
-	    default: temp = 0x00; break;
+	    case 0: temp = memory.isRegionPAL() ? 0xBA : 0xD5; break;
+	    case 1: temp = memory.isRegionPAL() ? 0xC7 : 0xE5; break;
+	    case 2: temp = memory.isRegionPAL() ? 0xC1 : 0xFF; break;
+	    default: temp = memory.isRegionPAL() ? 0xBA : 0xD5; break;
 	}
 
 	return temp;
@@ -271,6 +306,8 @@ namespace sega
 
     void SMSVDP::clock_vdp(int cycles)
     {
+	irq_gen = false;
+	// is_vblank = false;
 	int clock_info = (cycles * 2);
 	int height = get_height();
 
@@ -297,6 +334,11 @@ namespace sega
 	    else if (vcounter == height)
 	    {
 		is_vblank = true;
+
+		if (is_frame_irq)
+		{
+		    irq_gen = true;
+		}
 	    }
 
 	    if (vcounter >= height)
@@ -307,15 +349,17 @@ namespace sega
 		}
 
 		yscroll = scrolly_copy;
-		int mode = mode_val;
 
-		if (mode == 11)
+		if (!is_sms1_vdp)
 		{
-		    display_res = 1;
-		}
-		else if (mode == 14)
-		{
-		    display_res = 2;
+		    int mode = mode_val;
+
+		    switch (mode)
+		    {
+			case 11: display_res = 1; break;
+			case 14: display_res = 2; break;
+			default: display_res = 0; break;
+		    }
 		}
 		else
 		{
@@ -350,11 +394,6 @@ namespace sega
 		}
 	    }
 	}
-
-	if (is_vblank && is_frame_irq)
-	{
-	    irq_gen = true;
-	}
     }
 
     void SMSVDP::render_scanline()
@@ -388,13 +427,141 @@ namespace sega
 
     void SMSVDP::render_mode4()
     {
-	return;
+	// TODO: SMS2 VDP differences
+	int height = get_height();
+
+	uint8_t vcount = vcounter;
+	uint16_t namebase = getnamebase();
+
+	uint8_t scrollx = xscroll;
+	uint8_t scrolly = yscroll;
+
+	int starting_row = (scrolly >> 3);
+	int fine_scrolly = (scrolly & 0x7);
+
+	int starting_col = (scrollx >> 3);
+	int fine_scrollx = (scrollx & 0x7);
+
+	uint32_t yrow = (vcount >> 3);
+
+	for (int tile_col = 0; tile_col < 32; tile_col++)
+	{
+	    for (int pixel = 0; pixel < 8; pixel++)
+	    {
+		uint32_t xpos = ((tile_col << 3) + pixel);
+
+		bool allow_hscroll = ((yrow > 1) || !limithscroll) ? true : false;
+
+		if (allow_hscroll)
+		{
+		    xpos = ((starting_col << 3) + (pixel + fine_scrollx));
+		    xpos &= 0xFF;
+		}
+
+		uint32_t name_base_addr = namebase;
+		uint32_t name_row = yrow;
+
+		bool allow_vscroll = (((xpos >> 3) > 23) && limitvscroll) ? false : true;
+
+		if (allow_vscroll)
+		{
+		    name_row += starting_row;
+
+		    uint32_t bump_row = (vcounter & 0x7);
+
+		    if ((bump_row + fine_scrolly) >= 8)
+		    {
+			name_row += 1;
+		    }
+
+		    int vrow_mod = (height == 192) ? 28 : 32;
+		    name_row %= vrow_mod;
+		}
+		
+		if (is_sms1_vdp && !testbit(pagename_addr, 0))
+		{
+		    name_row &= 0xF;
+		}
+
+		name_base_addr += ((name_row << 6) + (tile_col << 1));
+
+		uint16_t name_word = ((vram[name_base_addr + 1] << 8) | vram[name_base_addr]);
+
+		bool use_sprite_palette = testbit(name_word, 11);
+		bool yflip = testbit(name_word, 10);
+		bool xflip = testbit(name_word, 9);
+		uint16_t tile_def = (name_word & 0x1FF);
+
+		uint32_t vcount_offs = vcount;
+
+		if (allow_vscroll)
+		{
+		    vcount_offs += scrolly;
+		}
+
+		uint32_t yline = (vcount_offs & 0x7);
+
+		if (yflip)
+		{
+		    yline ^= 7;
+		}
+
+		uint32_t tile_addr = ((tile_def << 5) | (yline << 2));
+
+		uint8_t data1 = vram[tile_addr];
+		uint8_t data2 = vram[tile_addr + 1];
+		uint8_t data3 = vram[tile_addr + 2];
+		uint8_t data4 = vram[tile_addr + 3];
+
+		int colorbit = (7 - pixel);
+
+		if (xflip)
+		{
+		    colorbit ^= 7;
+		}
+
+		int palette = (testbit(data4, colorbit) << 3);
+		palette |= (testbit(data3, colorbit) << 2);
+		palette |= (testbit(data2, colorbit) << 1);
+		palette |= testbit(data1, colorbit);
+
+		// bool masking = false;
+
+		if ((xpos < 8) && maskfirstcol)
+		{
+		    // masking = true;
+		    palette = backdrop_color;
+		    use_sprite_palette = true;
+		}
+
+		if (use_sprite_palette)
+		{
+		    palette += 16;
+		}
+
+		uint8_t color_byte = cram[palette];
+
+		// Blue-channel is non-linear on SMS1 VDP (verified from die shot)
+		// Reference: (https://www.retrorgb.com/sega-master-system-blue-channel-mysteries-further-uncovered.html)
+		array<uint8_t, 4> level = {0, 78, 160, 238};
+		array<uint8_t, 4> blue_level = {0, 98, 160, 238};
+
+		uint8_t red = level[(color_byte & 0x3)];
+		uint8_t green = level[((color_byte >> 2) & 0x3)];
+		uint8_t blue = blue_level[((color_byte >> 4) & 0x3)];
+
+		segaRGB color = {red, green, blue};
+		set_pixel(xpos, vcount, color);
+	    }
+
+	    starting_col = ((starting_col + 1) % 32);
+	}
     }
 
-    // Reference for VDP colors: (http://www.sega-16.com/forum/showthread.php?30530-SMS-VDP-output-levels)
+    // Reference for SMS1 VDP colors: (http://www.sega-16.com/forum/showthread.php?30530-SMS-VDP-output-levels)
     segaRGB SMSVDP::getoldstylecolor(int pen_select)
     {
-	// Blue-channel is non-linear (verified from die shot)
+	// Blue-channel is non-linear on SMS1 VDP (verified from die shot)
 	// Reference: (https://www.retrorgb.com/sega-master-system-blue-channel-mysteries-further-uncovered.html)
 	array<uint8_t, 4> level = {0, 78, 160, 238};
 	array<uint8_t, 4> blue_level = {0, 98, 160, 238};
